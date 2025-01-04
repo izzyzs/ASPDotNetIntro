@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using TaskManager.Data;
 using TaskManager.Models;
 
-namespace TaskManagerApi.Controllers
+namespace TaskManager.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
@@ -30,9 +30,9 @@ namespace TaskManagerApi.Controllers
             var taskItem = await _context.Tasks.FindAsync(id);
 
             if (taskItem == null)
-            [
+            {
                 return NotFound();
-            ]
+            }
             return taskItem;
         }
 
@@ -54,8 +54,60 @@ namespace TaskManagerApi.Controllers
             {
                 return BadRequest("Task ID mismatch.");
             }
+            
+            var existingTask = await _context.Tasks.FindAsync(id);
+            if (existingTask == null)
+            {
+                return NotFound();
+            }
 
-            _context.Entry(updatedTask).State = EntityState.Modified;
+            if (!string.IsNullOrEmpty(updatedTask.Title))
+            {
+                existingTask.Title = updatedTask.Title;
+            }
+
+            if (!string.IsNullOrEmpty(updatedTask.Description))
+            {
+                existingTask.Description = updatedTask.Description;
+            }
+
+            if (updatedTask.IsCompleted.HasValue)
+            {
+                existingTask.IsCompleted = updatedTask.IsCompleted;
+            }
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!TaskItemExists(id))
+                {
+                    return NotFound();
+                }
+                throw;
+            }
+
+            return NoContent();
         }
+
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteTask(int id)
+        {
+            var taskitem = await _context.Tasks.FindAsync(id);
+            if (taskitem == null)
+            {
+                return NotFound();
+            }
+
+            _context.Tasks.Remove(taskitem);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
+
+        private bool TaskItemExists(int id) => _context.Tasks.Any(e => e.Id == id);
     }
 }
